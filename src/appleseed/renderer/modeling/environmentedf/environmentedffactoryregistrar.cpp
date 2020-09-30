@@ -42,6 +42,7 @@
 #include "renderer/modeling/environmentedf/oslenvironmentedf.h"
 #include "renderer/modeling/environmentedf/preethamenvironmentedf.h"
 #include "renderer/modeling/environmentedf/nishita93environmentedf.h"
+#include "renderer/modeling/environmentedf/blenderskyenvironmentedf.h"
 
 // appleseed.foundation headers.
 #include "foundation/memory/autoreleaseptr.h"
@@ -75,6 +76,7 @@ EnvironmentEDFFactoryRegistrar::EnvironmentEDFFactoryRegistrar(const SearchPaths
     impl->register_factory(auto_release_ptr<FactoryType>(new OSLEnvironmentEDFFactory()));
     impl->register_factory(auto_release_ptr<FactoryType>(new PreethamEnvironmentEDFFactory()));
     impl->register_factory(auto_release_ptr<FactoryType>(new Nishita93EnvironmentEDFFactory()));
+    impl->register_factory(auto_release_ptr<FactoryType>(new BlenderSkyEnvironmentEDFFactory()));
 }
 
 EnvironmentEDFFactoryRegistrar::~EnvironmentEDFFactoryRegistrar()
