@@ -116,6 +116,42 @@ namespace blendersky {
             4.605E-6f,   // 700nm
     };
 
+    // Ozona absorption coefficient (m^-1)
+    // Source: https://www.iup.uni-bremen.de/gruppen/molspec/databases/referencespectra/o3spectra2011/index.html
+    const float ozone_coeff[num_wavelengths] = {
+    3.804511196879277e-09f,      // 400 nm
+    6.913786897105462e-09f,      // 410 nm
+    1.3852765960014552e-08f,      // 420 nm
+    2.1308603627919998e-08f,      // 430 nm
+    3.974417614472733e-08f,      // 440 nm
+    5.779591314894535e-08f,      // 450 nm
+    9.191587335498181e-08f,      // 460 nm
+    1.2363721551643633e-07f,      // 470 nm
+    1.9505027060647285e-07f,      // 480 nm
+    2.2672051905767247e-07f,      // 490 nm
+    3.716605995280002e-07f,      // 500 nm
+    4.0267814468581854e-07f,      // 510 nm
+    5.364069922247275e-07f,      // 520 nm
+    6.912136535745463e-07f,      // 530 nm
+    7.745488102370914e-07f,      // 540 nm
+    8.772119777709093e-07f,      // 550 nm
+    1.0680234682312722e-06f,      // 560 nm
+    1.1695343279723626e-06f,      // 570 nm
+    1.1011384812494534e-06f,      // 580 nm
+    1.1759623019832746e-06f,      // 590 nm
+    1.2552240270210935e-06f,      // 600 nm
+    1.0772983295309093e-06f,      // 610 nm
+    9.361428617905462e-07f,      // 620 nm
+    8.052237676756349e-07f,      // 630 nm
+    6.675936847221821e-07f,      // 640 nm
+    5.619235334727269e-07f,      // 650 nm
+    4.6550674463418176e-07f,      // 660 nm
+    3.7068568738763686e-07f,      // 670 nm
+    3.0466838275272715e-07f,      // 680 nm
+    2.3788813137578206e-07f,      // 690 nm
+    1.8836707145585476e-07f,      // 700 nm
+    };
+
     static inline float sqr(float n) {
         return n * n;
     }
@@ -128,6 +164,16 @@ namespace blendersky {
     // Density of mie particles at height (m).
     static float density_mie(float height) {
         return expf(-height / mie_scale);
+    }
+
+    static float density_ozone(float height)
+    {
+        float den = 0.0f;
+        if (height >= 10000.0f && height < 25000.0f)
+            den = 1.0f / 15000.0f * height - 2.0f / 3.0f;
+        else if (height >= 25000 && height < 40000)
+            den = -(1.0f / 15000.0f * height - 8.0f / 3.0f);
+        return den;
     }
 
     // Rayleigh phase function for a given angle (rad).
@@ -164,7 +210,7 @@ namespace blendersky {
     }
 
     // Computes optical depth along a ray considering mie and rayleigh scattering.
-    static Vector2f ray_optical_depth(Vector3f ray_origin, Vector3f ray_direction)
+    static Vector3f ray_optical_depth(Vector3f ray_origin, Vector3f ray_direction)
     {
         /* This code computes the optical depth along a ray through the atmosphere. */
         Vector3f ray_end = atmosphere_intersection(ray_origin, ray_direction);
@@ -179,7 +225,7 @@ namespace blendersky {
          * we use the fact that the density always has the same spectrum for each type of
          * scattering, so we split the density into a constant spectrum and a factor and
          * only track the factors. */
-        Vector2f optical_depth = Vector2f(0.0f, 0.0f);
+        Vector3f optical_depth = Vector3f(0.0f, 0.0f, 0.0f);
 
         /* The density of each segment is evaluated at its middle. */
         Vector3f P = ray_origin + 0.5f * segment;
@@ -188,7 +234,7 @@ namespace blendersky {
             float height = norm(P) - earth_radius;
 
             /* Accumulate optical depth of this segment (density is assumed to be constant along it). */
-            Vector2f density = Vector2f(density_rayleigh(height), density_mie(height));
+            Vector3f density = Vector3f(density_rayleigh(height), density_mie(height), density_ozone(height));
             optical_depth += segment_length * density;
 
             /* Advance along ray. */
@@ -206,6 +252,7 @@ namespace blendersky {
         Vector3f ray_origin,
         float air_density,
         float dust_density,
+        float ozone_density,
         RegularSpectrum31f& spectrum)
     {
         /* This code computes single-inscattering along a ray through the atmosphere. */
@@ -221,7 +268,7 @@ namespace blendersky {
          * we use the fact that the density always has the same spectrum for each type of
          * scattering, so we split the density into a constant spectrum and a factor and
          * only track the factors. */
-        Vector2f optical_depth = Vector2f(0.0f, 0.0f);
+        Vector3f optical_depth = Vector3f(0.0f, 0.0f, 0.0f);
 
         /* Zero out light accumulation. */
         for (int wl = 0; wl < num_wavelengths; wl++) {
@@ -230,8 +277,8 @@ namespace blendersky {
 
         /* Compute phase function for scattering and the density scale factor. */
         float mu = dot(ray_dir, sun_dir);
-        Vector2f phase_function = Vector2f(phase_rayleigh(mu), mie_phase(mu));
-        Vector2f density_scale = Vector2f(air_density, dust_density);
+        Vector3f phase_function = Vector3f(phase_rayleigh(mu), mie_phase(mu), 0.0f);
+        Vector3f density_scale = Vector3f(air_density, dust_density, ozone_density);
 
         /* The density and in-scattering of each segment is evaluated at its middle. */
         Vector3f P = ray_origin + 0.5f * segment;
@@ -240,21 +287,21 @@ namespace blendersky {
             float height = norm(P) - earth_radius;
 
             /* Evaluate and accumulate optical depth along the ray. */
-            Vector2f density = density_scale * Vector2f(density_rayleigh(height), density_mie(height));
+            Vector3f density = density_scale * Vector3f(density_rayleigh(height), density_mie(height), density_ozone(height));
             optical_depth += segment_length * density;
 
             /* If the earth isn't in the way, evaluate inscattering from the sun. */
             if (!surface_intersection(P, sun_dir)) {
-                Vector2f light_optical_depth = density_scale * ray_optical_depth(P, sun_dir);
-                Vector2f total_optical_depth = optical_depth + light_optical_depth;
+                Vector3f light_optical_depth = density_scale * ray_optical_depth(P, sun_dir);
+                Vector3f total_optical_depth = optical_depth + light_optical_depth;
 
                 /* attenuation of light */
                 for (int wl = 0; wl < num_wavelengths; wl++) {
-                    Vector2f extinction_density = total_optical_depth * Vector2f(rayleigh_coeff[wl], 1.11f * mie_coeff);
+                    Vector3f extinction_density = total_optical_depth * Vector3f(rayleigh_coeff[wl], 1.11f * mie_coeff, ozone_coeff[wl]);
                     float total_extinction_density = extinction_density.x + extinction_density.y;
                     float attenuation = expf(-total_extinction_density);
 
-                    Vector2f scattering_density = density * Vector2f(rayleigh_coeff[wl], mie_coeff);
+                    Vector3f scattering_density = density * Vector3f(rayleigh_coeff[wl], mie_coeff, 0.0f);
 
                     /* The total inscattered radiance from one segment is:
                      * Tr(A<->B) * Tr(B<->C) * sigma_s * phase * L * segment_length
@@ -269,8 +316,8 @@ namespace blendersky {
                      * The code here is just that, with a bit of additional optimization to not store full
                      * spectra for the optical depth.
                      */
-                    Vector2f combined_reduction = phase_function * scattering_density;
-                    float total_combined_reduction = combined_reduction.x + combined_reduction.y;
+                    Vector3f combined_reduction = phase_function * scattering_density;
+                    float total_combined_reduction = combined_reduction.x + combined_reduction.y + combined_reduction.z;
                     spectrum[wl] += attenuation * total_combined_reduction * sun_irradiance[wl] * segment_length;
                 }
             }
@@ -288,7 +335,7 @@ namespace blendersky {
         float dust_density,
         float sun_radius,
         RegularSpectrum31f& spectrum) {
-        Vector2f optical_depth = ray_optical_depth(ray_origin, ray_dir);
+        Vector3f optical_depth = ray_optical_depth(ray_origin, ray_dir);
         float solid_angle = Pi<float>() * (1.0f - cosf(sun_radius));
         /* Compute final spectrum. */
         for (int i = 0; i < num_wavelengths; i++) {
