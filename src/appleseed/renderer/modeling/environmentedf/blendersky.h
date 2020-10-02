@@ -43,41 +43,41 @@ namespace blendersky {
 
     // Sun irradiance (W*m^-2*nm^-1) values at the top of the atmosphere.
     // Source: https://www.nrel.gov/grid/solar-resource/spectra.html, Table SMART MODTRAN ETR Spectra
-    static const float sun_irradiance[31] = {
-            1.689945f,                // 400 nm
-            1.720414f,                // 410 nm
-            1.693671f,                // 420 nm
-            1.635621f,                // 430 nm
-            1.922204f,                // 440 nm
-            2.050226f,                // 450 nm
-            2.017384f,                // 460 nm
-            2.010281f,                // 470 nm
-            1.938443f,                // 480 nm
-            1.9624f,                  // 490 nm
-            1.920103f,                // 500 nm
-            1.83157f,                 // 510 nm
-            1.871788f,                // 520 nm
-            1.901942f,                // 530 nm
-            1.866246f,                // 540 nm
-            1.856125f,                // 550 nm
-            1.84347f,                 // 560 nm
-            1.844103f,                // 570 nm
-            1.826544f,                // 580 nm
-            1.780521f,                // 590 nm
-            1.746604f,                // 600 nm
-            1.71434f,                 // 610 nm
-            1.696628f,                // 620 nm
-            1.655753f,                // 630 nm
-            1.614657f,                // 640 nm
-            1.528049f,                // 650 nm
-            1.558611f,                // 660 nm
-            1.502f,                   // 670 nm
-            1.4622f,                  // 680 nm
-            1.438943f,                // 690 nm
-            1.383291f,                // 700 nm
+    static const float sun_radiance[31] = {
+            2.11275f,   // 400nm
+            2.58882f,   // 410nm
+            2.58291f,   // 420nm
+            2.42323f,   // 430nm
+            2.67605f,   // 440nm
+            2.96583f,   // 450nm
+            3.05454f,   // 460nm
+            3.00575f,   // 470nm
+            3.06637f,   // 480nm
+            2.88304f,   // 490nm
+            2.87121f,   // 500nm
+            2.78250f,   // 510nm
+            2.71006f,   // 520nm
+            2.72336f,   // 530nm
+            2.63613f,   // 540nm
+            2.55038f,   // 550nm
+            2.50602f,   // 560nm
+            2.53116f,   // 570nm
+            2.53559f,   // 580nm
+            2.51342f,   // 590nm
+            2.46315f,   // 600nm
+            2.41732f,   // 610nm
+            2.36853f,   // 620nm
+            2.32121f,   // 630nm
+            2.28277f,   // 640nm
+            2.23398f,   // 650nm
+            2.19702f,   // 650nm
+            2.15267f,   // 670nm
+            2.10979f,   // 680nm
+            2.07283f,   // 690nm
+            2.02404f    // 700nm
     };
-    RegularSpectrum31f sun_irradiance_spectrum() {
-        return RegularSpectrum31f::from_array(sun_irradiance);
+    RegularSpectrum31f sun_radiance_spectrum() {
+        return RegularSpectrum31f::from_array(sun_radiance);
     }
 
     // Rayleigh scattering coefficients (m^-1) from Rudolf Penndorf (1957) Table 3.
@@ -318,7 +318,7 @@ namespace blendersky {
                      */
                     Vector3f combined_reduction = phase_function * scattering_density;
                     float total_combined_reduction = combined_reduction.x + combined_reduction.y + combined_reduction.z;
-                    spectrum[wl] += attenuation * total_combined_reduction * sun_irradiance[wl] * segment_length;
+                    spectrum[wl] += attenuation * total_combined_reduction * sun_radiance[wl] * segment_length;
                 }
             }
 
@@ -342,7 +342,7 @@ namespace blendersky {
             /* Combine spectra and the optical depth into transmittance. */
             float transmittance = rayleigh_coeff[i] * optical_depth.x * air_density +
                 1.11f * mie_coeff * optical_depth.y * dust_density;
-            spectrum[i] = (sun_irradiance[i] / solid_angle) * expf(-transmittance);
+            spectrum[i] = (sun_radiance[i] / solid_angle) * expf(-transmittance);
         }
     }
 }
